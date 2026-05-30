@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>部門聚餐點餐</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #FDE8DD;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    .container { max-width: 560px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 { font-size: 1.6rem; color: #1a1a1a; }
+    header p { margin-top: 6px; color: #666; font-size: 0.9rem; }
+    #event-address { margin-top: 3px; color: #999; font-size: 0.8rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.03);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+    .card h2.tight { border-bottom: none; padding-bottom: 0; margin-bottom: 6px; }
+    .card-desc { font-size: 0.82rem; color: #888; margin-bottom: 14px; line-height: 1.5; }
+
+    /* 菜單圖片輪播 */
+    .carousel {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 6px;
+    }
+    .carousel::-webkit-scrollbar { height: 5px; }
+    .carousel::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 3px; }
+    .carousel-item {
+      flex: 0 0 84%;
+      scroll-snap-align: center;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #f0f0f0;
+      cursor: pointer;
+    }
+    .carousel-item img { width: 100%; height: auto; display: block; }
+
+    /* 圖片放大燈箱 */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+
+    .name-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 14px;
+      font-size: 1rem;
+      background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .name-input:focus {
+      outline: none;
+      border-color: #F0502E;
+      box-shadow: 0 0 0 3px rgba(240,80,46,.15);
+    }
+
+    /* 自訂姓名下拉選單 */
+    .combo { position: relative; }
+
+    .name-input[readonly] { cursor: pointer; background: #fff; }
+
+    .combo-caret {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #F0502E;
+      font-size: 0.9rem;
+      pointer-events: none;
+      transition: transform .2s;
+    }
+    .combo.open .combo-caret { transform: translateY(-50%) rotate(180deg); }
+
+    .combo-list {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 18px;
+      box-shadow: 0 12px 36px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 20;
+      padding: 6px;
+      display: none;
+    }
+    .combo-list.open { display: block; }
+
+    .combo-option {
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .combo-option:hover,
+    .combo-option.active {
+      background: #FDEEE9;
+      color: #D13E20;
+    }
+
+    .combo-empty {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .category-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin: 14px 0 8px;
+    }
+
+    /* 分類 tab */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 6px;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tabs::-webkit-scrollbar { height: 5px; }
+    .tabs::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 3px; }
+
+    .tab {
+      flex: 0 0 auto;
+      padding: 8px 15px;
+      border: 1px solid transparent;
+      border-radius: 18px;
+      font-size: 0.85rem;
+      color: #555;
+      background: rgba(0,0,0,.05);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s, color .12s;
+    }
+    .tab.active {
+      background: #F0502E;
+      color: #fff;
+      font-weight: 600;
+    }
+    .tab-badge {
+      min-width: 18px;
+      height: 18px;
+      line-height: 18px;
+      text-align: center;
+      background: #D13E20;
+      color: #fff;
+      border-radius: 9px;
+      font-size: 0.7rem;
+      margin-left: 5px;
+      padding: 0 5px;
+      display: inline-block;
+    }
+    .tab.active .tab-badge { background: #fff; color: #D13E20; }
+
+    .menu-panel { display: none; }
+    .menu-panel.active { display: block; }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,.05);
+    }
+    .menu-item:last-child { border-bottom: none; }
+
+    .item-info { flex: 1; padding-right: 12px; }
+    .item-name { font-size: 0.95rem; color: #1a1a1a; }
+    .item-price { font-size: 0.82rem; color: #F0502E; margin-top: 2px; }
+
+    .tag {
+      display: inline-block;
+      background: #dc2626;
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 6px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: .02em;
+    }
+
+    .item-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .opt-pill {
+      font-size: 0.78rem;
+      padding: 5px 12px;
+      border: 1px solid transparent;
+      border-radius: 16px;
+      cursor: pointer;
+      color: #555;
+      background: rgba(0,0,0,.05);
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .opt-pill.selected {
+      border-color: #F0502E;
+      background: #FDEEE9;
+      color: #D13E20;
+      font-weight: 600;
+    }
+
+    .qty-control { display: flex; align-items: center; gap: 10px; }
+
+    .qty-btn {
+      width: 32px; height: 32px;
+      border: none;
+      background: rgba(0,0,0,.05);
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s;
+      line-height: 1; color: #333;
+    }
+    .qty-btn:hover { background: #FDEEE9; color: #D13E20; }
+    .qty-btn:active { background: #F8CBBD; }
+
+    .qty-num { min-width: 20px; text-align: center; font-size: 1rem; color: #1a1a1a; }
+
+    .note-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 70px;
+      font-family: inherit;
+    }
+    .note-input:focus { outline: none; border-color: #F0502E; }
+
+    .summary {
+      background: #FDEEE9;
+      border: 1px solid rgba(240,80,46,.18);
+      border-radius: 20px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .summary h3 { font-size: 0.9rem; color: #D13E20; margin-bottom: 8px; }
+    .summary-item {
+      display: flex; justify-content: space-between;
+      font-size: 0.88rem; color: #333; padding: 2px 0;
+    }
+    .summary-total {
+      display: flex; justify-content: space-between;
+      font-size: 0.95rem; font-weight: 700; color: #D13E20;
+      padding-top: 8px; margin-top: 6px;
+      border-top: 1px solid #F8CBBD;
+    }
+    .summary.over { border-color: rgba(220,38,38,.4); }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: #F0502E;
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .submit-btn:hover { background: #D13E20; }
+    .submit-btn:disabled {
+      background: #F0DDD6;
+      color: #C09A8E;
+      cursor: not-allowed;
+    }
+
+    .success-screen { display: none; text-align: center; padding: 40px 20px; }
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #F0502E;
+      margin: 0 auto 16px;
+      position: relative;
+    }
+    .success-icon::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 46%;
+      width: 14px;
+      height: 26px;
+      border: solid #fff;
+      border-width: 0 4px 4px 0;
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+    .success-screen h2 { color: #1a1a1a; margin-bottom: 8px; }
+    .success-screen p { color: #666; font-size: 0.9rem; }
+
+    .error-msg { color: #dc2626; font-size: 0.85rem; margin-top: 8px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>部門聚餐點餐</h1>
+      <p id="event-subtitle">請選擇你要點的餐點</p>
+      <p id="event-address"></p>
+    </header>
+
+    <div id="order-form">
+      <div class="card">
+        <h2>你的名字</h2>
+        <div class="combo" id="name-combo">
+          <input class="name-input" id="name" type="text" placeholder="點選選擇姓名" autocomplete="off" readonly />
+          <span class="combo-caret">▾</span>
+          <div class="combo-list" id="name-list"></div>
+        </div>
+        <div class="error-msg" id="name-error">請輸入姓名</div>
+      </div>
+
+      <div class="card" id="menu-images-card">
+        <h2 class="tight">菜單</h2>
+        <div class="carousel" id="menu-carousel"></div>
+      </div>
+
+      <div class="card" id="menu-card">
+        <h2 class="tight">個人料理</h2>
+        <p class="card-desc">每人 600 元額度，點餐自由組合</p>
+        <div class="tabs" id="tabs"></div>
+        <div id="menu-list"></div>
+      </div>
+
+      <div class="card" id="shared-card">
+        <h2 class="tight">共享料理</h2>
+        <p class="card-desc">選擇你喜歡的餐點，將依據同桌偏好一起共享</p>
+        <div class="tabs" id="shared-tabs"></div>
+        <div id="shared-list"></div>
+      </div>
+
+      <div class="summary" id="summary">
+        <h3>訂單摘要</h3>
+        <div id="summary-items"></div>
+        <div class="summary-total">
+          <span>合計</span>
+          <span id="summary-total-price"></span>
+        </div>
+      </div>
+
+      <div class="error-msg" id="order-error" style="margin-bottom:10px;">請至少選一項餐點</div>
+      <button class="submit-btn" id="submit-btn" onclick="submitOrder()">送出訂單</button>
+    </div>
+
+    <div class="card success-screen" id="success-screen">
+      <div class="success-icon"></div>
+      <h2>訂單已送出！</h2>
+      <p id="success-detail"></p>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <img id="lightbox-img" src="" alt="菜單">
+  </div>
+
+  <script>
+    // ============================================================
+    // 設定區：修改這裡來客製化你的點餐頁面
+    // ============================================================
+    const CONFIG = {
+      eventName: "部門聚餐",
+      restaurantName: "年三十 光復店",
+      address: "台北市大安區光復南路308巷30號",
+      budget: 600,   // 每人金額上限，超過顯示警告（設 0 可關閉）
+      // Apps Script Web App URL（部署後貼上 /exec 結尾的網址）
+      scriptUrl: "https://script.google.com/a/macros/shopee.com/s/AKfycbxuW7h3sShQVKZuYJRHKat6BNJ8F1GTXWWBT8APuDZALhUdX7JORTcIV_1PzdbAyGif8Q/exec",
+      // 這些類別會獨立成「共享料理」卡片
+      sharedCategories: ["一品物", "食事", "沙拉", "湯品", "小菜漬物", "甜品"],
+      // 菜單圖片（Google Drive 檔案 ID，須設為「知道連結的任何人」可檢視）
+      menuImages: [
+        "11PouP--3YD8dvvNFE4v4G1paz1Fna6sI",
+        "1yCU15e7po7jao7o-ho9J1jB5WWmxsXd2",
+        "1I4u-XiTm-GAy6nhgyXRrHs5ZvWhDwSXz",
+        "1_CsudyKwWL8xRdW6Zk-b0HFdk0CmPHs_",
+        "1DoRosL2HIJU1LjQrxHwar_KOB35mq7Fv",
+        "1sZfQbAF65R468LYeEjw6vCKPhv7BGrz4",
+        "1dbNQsZLpRTmxzOjdrfPHSYiUE0QLuR5J",
+        "1D8nbflfOzSUzE6CLD44M9Svy6Yc-iiTn",
+        "1sIaX9KHdxCzty8mBTgOozEM-VrO4iADJ",
+        "1i8Blxj4o9RPmHRenL_cMMkmzbxtNYXMl",
+      ],
+      // 同事名單（可下拉選擇，也能自己輸入）
+      names: [
+        "Eric", "Elena", "Tommy", "Eden", "Vita", "Vivian", "Victoria", "Amber",
+        "Jeder", "Megan", "Andy", "Jenny", "Luna", "Audrey", "Dawn",
+        "林玟汝", "陳永澄", "Ellen"
+      ],
+      // 品項可加 tag（標籤）與 options（可選規格，priceDelta 為加價）
+      menu: [
+        // 期間限定串物
+        { category: "期間限定串物", name: "醬燒牛心串",       price: 100 },
+        { category: "期間限定串物", name: "雞里肌捲紫蘇葉",   price:  90 },
+        { category: "期間限定串物", name: "豬五花捲海苔山藥", price:  90 },
+        { category: "期間限定串物", name: "鹽燒雞膝軟骨",     price:  70 },
+
+        // 冷串
+        { category: "冷串", name: "芥末青醬小章魚", price: 90 },
+
+        // 鐵板特色串物
+        { category: "鐵板特色串物", name: "蝦子麵包",       price: 80 },
+        { category: "鐵板特色串物", name: "香菇鑲肉",       price: 90 },
+        { category: "鐵板特色串物", name: "豬五花捲蘆筍",   price: 90 },
+        { category: "鐵板特色串物", name: "豬五花捲水蓮",   price: 90 },
+        { category: "鐵板特色串物", name: "香菜雞肉丸",     price: 90 },
+        { category: "鐵板特色串物", name: "一口漢堡排",     price: 80 },
+        { category: "鐵板特色串物", name: "咔嗲伊芙海老捲", price: 90 },
+        { category: "鐵板特色串物", name: "鴨肉春捲",       price: 90, tag: "光復限定" },
+        { category: "鐵板特色串物", name: "芙蓉蟹肉串",     price: 80, tag: "光復限定" },
+        { category: "鐵板特色串物", name: "手羽先",         price: 80 },
+
+        // 牛肉
+        { category: "牛肉", name: "厚切鹽蔥牛舌",     price: 120 },
+        { category: "牛肉", name: "翼板牛佐自製醬料", price: 130 },
+        { category: "牛肉", name: "牛肋條串香菇",     price: 120 },
+        { category: "牛肉", name: "牛小排串",         price: 150 },
+        { category: "牛肉", name: "自家製牛肉丸",     price: 100, tag: "光復限定" },
+
+        // 雞肉
+        { category: "雞肉", name: "雞腿肉蔥串",     price: 90 },
+        { category: "雞肉", name: "鹽燒雞頸肉",     price: 90 },
+        { category: "雞肉", name: "雞里肌",         price: 80, tag: "光復限定" },
+        { category: "雞肉", name: "南蠻雞串",       price: 80 },
+        { category: "雞肉", name: "剝皮辣椒手羽先", price: 90 },
+
+        // 豬肉
+        { category: "豬肉", name: "羅勒豬五花", price: 90, tag: "光復限定" },
+        { category: "豬肉", name: "松阪豬串",   price: 90 },
+
+        // 羊肉
+        { category: "羊肉", name: "羊肉串櫛瓜", price: 90 },
+
+        // 海鮮
+        { category: "海鮮", name: "蟹味增貝柱",       price: 100 },
+        { category: "海鮮", name: "辣味增竹筍小卷串", price: 100, tag: "光復限定" },
+        { category: "海鮮", name: "鮭魚親子串",       price: 90 },
+        { category: "海鮮", name: "剝殼海老",         price: 120 },
+        { category: "海鮮", name: "烏賊小番茄",       price: 90 },
+
+        // 野菜
+        { category: "野菜", name: "茭白筍",   price: 70, tag: "光復限定" },
+        { category: "野菜", name: "日本山藥", price: 70 },
+        { category: "野菜", name: "茄子",     price: 70 },
+        { category: "野菜", name: "杏鮑菇",   price: 70 },
+        { category: "野菜", name: "秋葵",     price: 70 },
+        { category: "野菜", name: "櫛瓜",     price: 70 },
+
+        // 一品物
+        { category: "一品物", name: "炸秋刀",     price: 220 },
+        { category: "一品物", name: "玉子燒",     price: 130 },
+        { category: "一品物", name: "鐵板餃子",   price: 130 },
+        { category: "一品物", name: "百菇山藥燒", price: 180 },
+
+        // 食事
+        { category: "食事", name: "蛋包飯",         price: 260 },
+        { category: "食事", name: "牛肉壽喜燒烏龍麵", price: 260 },
+        { category: "食事", name: "牛舌炒飯",       price: 260 },
+        { category: "食事", name: "日式炒飯",       price: 230 },
+        { category: "食事", name: "日式炒麵",       price: 230 },
+
+        // 沙拉
+        { category: "沙拉", name: "溫野菜沙拉",   price: 170 },
+        { category: "沙拉", name: "豆腐海藻沙拉", price: 140 },
+
+        // 小菜漬物
+        { category: "小菜漬物", name: "綜合醃漬物",   price: 110 },
+        { category: "小菜漬物", name: "鹽昆布小黃瓜", price: 70 },
+        { category: "小菜漬物", name: "大根甘醋漬",   price: 60 },
+        { category: "小菜漬物", name: "日式醃野菜",   price: 100 },
+
+        // 湯品
+        { category: "湯品", name: "味噌蛋花湯", price: 60 },
+        { category: "湯品", name: "蛋花湯",     price: 50 },
+        { category: "湯品", name: "味噌湯",     price: 50 },
+
+        // 甜品
+        { category: "甜品", name: "紅豆沙小福串", price: 60 },
+        { category: "甜品", name: "甜三十",       price: 50 },
+        { category: "甜品", name: "年三十糕",     price: 50 },
+
+        // 飲料
+        { category: "飲料", name: "蓮霧沙瓦", price: 180, options: [
+            { label: "無酒精",       priceDelta: 0 },
+            { label: "加酒精 單份", priceDelta: 50 },
+            { label: "加酒精 雙份", priceDelta: 100 },
+        ] },
+        { category: "飲料", name: "PINK MIST", price: 300 },
+      ]
+    };
+    // ============================================================
+
+    document.querySelector("#event-subtitle").textContent = CONFIG.restaurantName;
+    if (CONFIG.address) document.querySelector("#event-address").textContent = CONFIG.address;
+
+    const quantities = {};
+    const optionChoice = {};   // 有規格的品項，記錄選了哪個（預設第一個）
+    CONFIG.menu.forEach((item, i) => {
+      quantities[i] = 0;
+      if (item.options) optionChoice[i] = 0;
+    });
+
+    // 品項實際單價（含規格加價）
+    function effectivePrice(i) {
+      const item = CONFIG.menu[i];
+      if (!item.options) return item.price;
+      return item.price + item.options[optionChoice[i]].priceDelta;
+    }
+
+    // 品項顯示名稱（含規格標註）
+    function itemLabel(i) {
+      const item = CONFIG.menu[i];
+      if (!item.options) return item.name;
+      return `${item.name}（${item.options[optionChoice[i]].label}）`;
+    }
+
+    // 名單：英文字母 A→Z，中文排最後
+    const NAME_LIST = (() => {
+      const isCJK = s => /[一-鿿]/.test(s[0]);
+      return [...(CONFIG.names || [])].sort((a, b) => {
+        const ca = isCJK(a), cb = isCJK(b);
+        if (ca !== cb) return ca ? 1 : -1;
+        return a.localeCompare(b);
+      });
+    })();
+
+    function setupNameCombo() {
+      const combo = document.getElementById("name-combo");
+      const input = document.getElementById("name");
+      const list = document.getElementById("name-list");
+      let activeIdx = -1;
+
+      function render() {
+        activeIdx = -1;
+        list.innerHTML = NAME_LIST
+          .map(n => `<div class="combo-option" data-name="${n}">${n}</div>`).join("");
+      }
+
+      const open = () => { render(); list.classList.add("open"); combo.classList.add("open"); };
+      const close = () => { list.classList.remove("open"); combo.classList.remove("open"); activeIdx = -1; };
+      const toggle = () => list.classList.contains("open") ? close() : open();
+
+      // 點輸入框：展開／收合選單（唯讀，不能打字）
+      input.addEventListener("click", toggle);
+
+      list.addEventListener("mousedown", (e) => {
+        const opt = e.target.closest(".combo-option");
+        if (!opt) return;
+        e.preventDefault();
+        input.value = opt.dataset.name;
+        close();
+      });
+
+      // 鍵盤操作（無障礙）
+      input.addEventListener("keydown", (e) => {
+        const isOpen = list.classList.contains("open");
+        if (!isOpen) {
+          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") { e.preventDefault(); open(); }
+          return;
+        }
+        const opts = [...list.querySelectorAll(".combo-option")];
+        if (e.key === "ArrowDown") { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, opts.length - 1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+        else if (e.key === "Enter") {
+          e.preventDefault();
+          if (activeIdx >= 0 && opts[activeIdx]) { input.value = opts[activeIdx].dataset.name; close(); }
+          return;
+        }
+        else if (e.key === "Escape") { close(); return; }
+        else return;
+        opts.forEach((o, i) => o.classList.toggle("active", i === activeIdx));
+        if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: "nearest" });
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("#name-combo")) close();
+      });
+    }
+
+    let CATS = [];                 // 分類順序
+    const CAT_GROUPS = {};         // 分類index -> [品項index]
+    const CAT_SECTION = {};        // 分類index -> 區塊（menu / shared）
+
+    function buildMenuImages() {
+      const ids = CONFIG.menuImages || [];
+      const card = document.getElementById("menu-images-card");
+      if (!ids.length) { card.style.display = "none"; return; }
+      const url = (id, w) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
+      document.getElementById("menu-carousel").innerHTML = ids.map(id => `
+        <div class="carousel-item" onclick="openLightbox('${url(id, 1600)}')">
+          <img src="${url(id, 800)}" loading="lazy" alt="菜單">
+        </div>`).join("");
+    }
+
+    function openLightbox(src) {
+      document.getElementById("lightbox-img").src = src;
+      document.getElementById("lightbox").classList.add("open");
+    }
+    function closeLightbox() {
+      document.getElementById("lightbox").classList.remove("open");
+    }
+
+    function itemRowHtml(item, i) {
+      const tagHtml = item.tag ? `<span class="tag">${item.tag}</span>` : "";
+      const optsHtml = item.options ? `
+            <div class="item-options" id="opts-${i}" style="display:none">
+              ${item.options.map((o, oi) => `
+                <span class="opt-pill${oi === 0 ? " selected" : ""}" data-i="${i}" data-oi="${oi}"
+                      onclick="setOption(${i}, ${oi})">${o.label}${o.priceDelta ? ` +$${o.priceDelta}` : ""}</span>
+              `).join("")}
+            </div>` : "";
+      return `
+        <div class="menu-item">
+          <div class="item-info">
+            <div class="item-name">${item.name}${tagHtml}</div>
+            ${item.price > 0 ? `<div class="item-price" id="price-${i}">$${effectivePrice(i)}</div>` : ""}
+            ${optsHtml}
+          </div>
+          <div class="qty-control">
+            <button class="qty-btn" onclick="changeQty(${i}, -1)">−</button>
+            <span class="qty-num" id="qty-${i}">0</span>
+            <button class="qty-btn" onclick="changeQty(${i}, 1)">＋</button>
+          </div>
+        </div>`;
+    }
+
+    function buildMenu() {
+      const shared = CONFIG.sharedCategories || [];
+
+      // 依分類分組（保留菜單原順序），並判定所屬區塊
+      CATS = [];
+      CONFIG.menu.forEach((item, i) => {
+        let ci = CATS.indexOf(item.category);
+        if (ci === -1) {
+          ci = CATS.length;
+          CATS.push(item.category);
+          CAT_GROUPS[ci] = [];
+          CAT_SECTION[ci] = shared.includes(item.category) ? "shared" : "menu";
+        }
+        CAT_GROUPS[ci].push(i);
+      });
+
+      const sections = {
+        menu:   { tabs: document.getElementById("tabs"),        list: document.getElementById("menu-list") },
+        shared: { tabs: document.getElementById("shared-tabs"), list: document.getElementById("shared-list") },
+      };
+
+      Object.keys(sections).forEach(secKey => {
+        const cis = CATS.map((_, ci) => ci).filter(ci => CAT_SECTION[ci] === secKey);
+        const firstCi = cis[0];
+        sections[secKey].tabs.innerHTML = cis.map(ci => `
+          <button class="tab${ci === firstCi ? " active" : ""}" data-cat="${ci}" data-section="${secKey}" onclick="switchTab(${ci})">
+            ${CATS[ci]}<span class="tab-badge" id="tab-badge-${ci}" style="display:none">0</span>
+          </button>`).join("");
+        sections[secKey].list.innerHTML = cis.map(ci => `
+          <div class="menu-panel${ci === firstCi ? " active" : ""}" id="panel-${ci}" data-section="${secKey}">
+            ${CAT_GROUPS[ci].map(i => itemRowHtml(CONFIG.menu[i], i)).join("")}
+          </div>`).join("");
+      });
+    }
+
+    function switchTab(ci) {
+      const sec = CAT_SECTION[ci];
+      document.querySelectorAll(`.tab[data-section="${sec}"]`).forEach(t =>
+        t.classList.toggle("active", Number(t.dataset.cat) === ci));
+      document.querySelectorAll(`.menu-panel[data-section="${sec}"]`).forEach(p =>
+        p.classList.toggle("active", p.id === `panel-${ci}`));
+      // 水平置中選中的 tab
+      const tabsEl = sec === "shared" ? document.getElementById("shared-tabs") : document.getElementById("tabs");
+      const active = tabsEl.querySelector(".tab.active");
+      if (active) tabsEl.scrollLeft = active.offsetLeft - tabsEl.clientWidth / 2 + active.clientWidth / 2;
+    }
+
+    function updateTabBadges() {
+      CATS.forEach((cat, ci) => {
+        const count = CAT_GROUPS[ci].reduce((s, i) => s + quantities[i], 0);
+        const badge = document.getElementById(`tab-badge-${ci}`);
+        if (!badge) return;
+        if (count > 0) { badge.textContent = count; badge.style.display = "inline-block"; }
+        else badge.style.display = "none";
+      });
+    }
+
+    function changeQty(index, delta) {
+      quantities[index] = Math.max(0, quantities[index] + delta);
+      document.getElementById(`qty-${index}`).textContent = quantities[index];
+      // 有規格的品項：數量 > 0 時才顯示規格選項
+      const opts = document.getElementById(`opts-${index}`);
+      if (opts) opts.style.display = quantities[index] > 0 ? "flex" : "none";
+      updateSummary();
+      updateTabBadges();
+    }
+
+    function setOption(i, oi) {
+      optionChoice[i] = oi;
+      document.querySelectorAll(`.opt-pill[data-i="${i}"]`).forEach(p =>
+        p.classList.toggle("selected", Number(p.dataset.oi) === oi));
+      const priceEl = document.getElementById(`price-${i}`);
+      if (priceEl) priceEl.textContent = `$${effectivePrice(i)}`;
+      updateSummary();
+    }
+
+    function selectedItems() {
+      return CONFIG.menu
+        .map((item, i) => ({ name: itemLabel(i), price: effectivePrice(i), qty: quantities[i] }))
+        .filter(x => x.qty > 0);
+    }
+
+    function updateSummary() {
+      const items = selectedItems();
+      const summaryEl = document.getElementById("summary");
+      if (items.length === 0) { summaryEl.style.display = "none"; return; }
+      summaryEl.style.display = "block";
+      const total = items.reduce((s, x) => s + x.price * x.qty, 0);
+      document.getElementById("summary-items").innerHTML =
+        items.map(x => `
+          <div class="summary-item">
+            <span>${x.name} × ${x.qty}</span>
+            <span>${x.price > 0 ? "$" + (x.price * x.qty) : "—"}</span>
+          </div>`).join("");
+      const totalEl = document.getElementById("summary-total-price");
+      totalEl.textContent = total > 0 ? `$${total}` : "—";
+
+      // 每人金額上限：超過則標紅並禁用送出
+      const submitBtn = document.getElementById("submit-btn");
+      const overBudget = CONFIG.budget && total > CONFIG.budget;
+      summaryEl.classList.toggle("over", !!overBudget);
+      totalEl.style.color = overBudget ? "#dc2626" : "";
+      submitBtn.disabled = overBudget;
+      submitBtn.textContent = overBudget ? `超過 $${CONFIG.budget} 上限，無法送出` : "送出訂單";
+    }
+
+    function submitOrder() {
+      const name = document.getElementById("name").value.trim();
+      const nameErr = document.getElementById("name-error");
+      const orderErr = document.getElementById("order-error");
+      nameErr.style.display = name ? "none" : "block";
+
+      const selected = selectedItems();
+      orderErr.textContent = "請至少選一項餐點";
+      orderErr.style.display = selected.length ? "none" : "block";
+      if (!name || !selected.length) return;
+
+      // 超過上限不得送出（按鈕通常已 disabled，這裡再防一層）
+      const total = selected.reduce((s, x) => s + x.price * x.qty, 0);
+      if (CONFIG.budget && total > CONFIG.budget) return;
+
+      const btn = document.getElementById("submit-btn");
+      btn.disabled = true;
+      btn.textContent = "送出中…";
+
+      const payload = {
+        name,
+        items: selected.map(x => `${x.name} × ${x.qty}`).join("、"),
+        total: selected.reduce((s, x) => s + x.price * x.qty, 0),
+        time: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
+      };
+
+      // 透過 fetch 送到 Apps Script Web App
+      fetch(CONFIG.scriptUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      }).then(() => showSuccess(payload))
+        .catch((err) => {
+          btn.disabled = false;
+          btn.textContent = "送出訂單";
+          orderErr.textContent = "送出失敗，請重試：" + err.message;
+          orderErr.style.display = "block";
+        });
+    }
+
+    function showSuccess(payload) {
+      document.getElementById("order-form").style.display = "none";
+      const ok = document.getElementById("success-screen");
+      ok.style.display = "block";
+      document.getElementById("success-detail").textContent =
+        `${payload.name}，你點了：${payload.items}` +
+        (payload.total > 0 ? `，合計 $${payload.total}` : "");
+    }
+
+    setupNameCombo();
+    buildMenuImages();
+    buildMenu();
+  </script>
+</body>
+</html>
